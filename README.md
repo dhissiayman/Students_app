@@ -91,7 +91,14 @@ spring.jpa.show-sql=true
 
 ```java
 public interface ProductRepository extends JpaRepository<Product, Long> {
-    List<Product> findByNameContains(String keyword);
+    List<Product> findByNameContains(String mc);
+    List<Product> findByPriceGreaterThan(double price);
+
+    @Query("select p from Product p where p.name like :x")
+    List<Product> Search(@Param("x") String mc);
+
+    @Query("select p from Product p where p.price>:x")
+    List<Product> searchByPriceGreaterThan(@Param("x") double price);
 }
 ```
 
@@ -100,82 +107,88 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 ### 7. Opérations de Test (via `CommandLineRunner` ou Controller)
 
 ```java
-@SpringBootApplication
-public class DemoApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(DemoApplication.class, args);
-    }
+public class StudentsAppApplication implements CommandLineRunner {
+	@Autowired
+	private ProductRepository productRepository;
+	public static void main(String[] args) {
+		SpringApplication.run(StudentsAppApplication.class, args);
+	}
 
-    @Bean
-    CommandLineRunner start(ProductRepository repo) {
-        return args -> {
-            repo.save(new Product(null, "Ordinateur", 3500.0, 10));
-            repo.save(new Product(null, "Smartphone", 2200.0, 5));
+	@Override
+	public void run(String... args) throws Exception {
+		//productRepository.save(new Product(null,"Comptuter",4300,3));
+		//productRepository.save(new Product(null,"Printer",1200,4));
+		//productRepository.save(new Product(null,"Smart Phone",3200,32));
+		List<Product> products = productRepository.findAll();
+		products.forEach(p->{System.out.println(p.toString());});
+		Product product = productRepository.findById(1L).get();
+		System.out.println("************************");
+		System.out.println(product.getId());
+		System.out.println(product.getName());
+		System.out.println(product.getPrice());
+		System.out.println(product.getQuantity());
+		System.out.println("************************");
+		// Update the product
+		product.setName("Updated Computer");
+		product.setPrice(4999);
+		product.setQuantity(5);
+		productRepository.save(product); // Save updated product
 
-            repo.findAll().forEach(System.out::println);
-        };
-    }
+		System.out.println("After Update:");
+		System.out.println(product);
+
+		System.out.println("************************");
+
+
+		List<Product> productList = productRepository.findByNameContains("C");
+		productList.forEach(p->{System.out.println(p.toString());});
+
+		System.out.println("************************");
+
+		List<Product> productList2 = productRepository.Search("%C%");
+		productList2.forEach(p->{System.out.println(p.toString());});
+
+		System.out.println("************************");
+
+		List<Product> productList3 = productRepository.searchByPriceGreaterThan(3000);
+		productList3.forEach(p->{System.out.println(p.toString());});
+
+		// Now delete the product
+		//productRepository.deleteById(1L);
+		//System.out.println("Product with ID 1 deleted.");
+	}
 }
 ```
 
 ---
 
-### 8. Migration vers MySQL (au lieu de H2)
+### 8. Migration vers MySQL or SQL SERVER(au lieu de H2)
 
 #### Modifier `application.properties` :
 
 ```properties
-spring.datasource.url=jdbc:mysql://localhost:3306/produits_db
-spring.datasource.username=root
-spring.datasource.password=yourpassword
+spring.application.name=JPA
+
+# H2 désactivé
+spring.h2.console.enabled=false
+
+# Connexion à SQL Server Express
+spring.datasource.url=jdbc:sqlserver://localhost\\SQLEXPRESS:1433;databaseName=users_db;encrypt=true;trustServerCertificate=true
+spring.datasource.username=ton_utilisateur
+spring.datasource.password=ton_mot_de_passe
+spring.datasource.driver-class-name=com.microsoft.sqlserver.jdbc.SQLServerDriver
+
+# JPA / Hibernate
 spring.jpa.hibernate.ddl-auto=update
-spring.jpa.database-platform=org.hibernate.dialect.MySQL8Dialect
-```
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.SQLServerDialect
 
-Assure-toi que MySQL est installé, la base `produits_db` existe, et que l'utilisateur a les droits.
-
----
-
-### 9. Mapping des Associations (Patient, Médecin, Rendez-vous)
-
-#### Exemple simplifié d'entités avec relations :
-
-```java
-@Entity
-public class Patient {
-    @Id @GeneratedValue
-    private Long id;
-    private String nom;
-    
-    @OneToMany(mappedBy = "patient")
-    private List<RendezVous> rendezVous;
-}
-
-@Entity
-public class Medecin {
-    @Id @GeneratedValue
-    private Long id;
-    private String nom;
-
-    @OneToMany(mappedBy = "medecin")
-    private List<RendezVous> rendezVous;
-}
-
-@Entity
-public class RendezVous {
-    @Id @GeneratedValue
-    private Long id;
-    private LocalDateTime date;
-
-    @ManyToOne
-    private Patient patient;
-
-    @ManyToOne
-    private Medecin medecin;
-}
-```
+# Port du serveur Spring Boot
+server.port=8083
 
 ---
+
+
 
 ## 📁 Objectifs futurs
 - Ajouter des contrôleurs REST pour exposer les APIs
